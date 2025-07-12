@@ -8,8 +8,8 @@ import lombok.Data;
 public class CancelacionRequest {
     
     @NotNull(message = "El ID del cliente es obligatorio")
-    private Long clienteId;
+    private String clienteId;
     
     @NotNull(message = "El ID del fondo es obligatorio")
-    private Long fondoId;
+    private String fondoId;
 } 

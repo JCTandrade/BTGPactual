@@ -1,5 +1,6 @@
 package com.gft.BTGPactual.exception;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -12,40 +13,57 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestControllerAdvice
+@Slf4j
 public class GlobalExceptionHandler {
-    
-    @ExceptionHandler(SaldoInsuficienteException.class)
-    public ResponseEntity<ErrorResponse> handleSaldoInsuficiente(SaldoInsuficienteException ex) {
-        ErrorResponse error = new ErrorResponse(
-            HttpStatus.BAD_REQUEST.value(),
-            ex.getMessage(),
-            LocalDateTime.now()
-        );
-        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
-    }
     
     @ExceptionHandler(RecursoNoEncontradoException.class)
     public ResponseEntity<ErrorResponse> handleRecursoNoEncontrado(RecursoNoEncontradoException ex) {
+        log.error("Recurso no encontrado: {}", ex.getMessage());
         ErrorResponse error = new ErrorResponse(
             HttpStatus.NOT_FOUND.value(),
             ex.getMessage(),
             LocalDateTime.now()
         );
-        return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    }
+    
+    @ExceptionHandler(SaldoInsuficienteException.class)
+    public ResponseEntity<ErrorResponse> handleSaldoInsuficiente(SaldoInsuficienteException ex) {
+        log.error("Saldo insuficiente: {}", ex.getMessage());
+        ErrorResponse error = new ErrorResponse(
+            HttpStatus.BAD_REQUEST.value(),
+            ex.getMessage(),
+            LocalDateTime.now()
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
     }
     
     @ExceptionHandler(SuscripcionExistenteException.class)
     public ResponseEntity<ErrorResponse> handleSuscripcionExistente(SuscripcionExistenteException ex) {
+        log.error("Suscripción existente: {}", ex.getMessage());
         ErrorResponse error = new ErrorResponse(
             HttpStatus.CONFLICT.value(),
             ex.getMessage(),
             LocalDateTime.now()
         );
-        return new ResponseEntity<>(error, HttpStatus.CONFLICT);
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+    }
+    
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex) {
+        log.error("Argumento ilegal: {}", ex.getMessage());
+        ErrorResponse error = new ErrorResponse(
+            HttpStatus.BAD_REQUEST.value(),
+            ex.getMessage(),
+            LocalDateTime.now()
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
     }
     
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ValidationErrorResponse> handleValidationErrors(MethodArgumentNotValidException ex) {
+    public ResponseEntity<ErrorResponse> handleValidationExceptions(MethodArgumentNotValidException ex) {
+        log.error("Error de validación: {}", ex.getMessage());
+        
         Map<String, String> errors = new HashMap<>();
         ex.getBindingResult().getAllErrors().forEach((error) -> {
             String fieldName = ((FieldError) error).getField();
@@ -53,29 +71,32 @@ public class GlobalExceptionHandler {
             errors.put(fieldName, errorMessage);
         });
         
-        ValidationErrorResponse error = new ValidationErrorResponse(
+        ErrorResponse error = new ErrorResponse(
             HttpStatus.BAD_REQUEST.value(),
-            "Errores de validación",
-            LocalDateTime.now(),
-            errors
+            "Error de validación en los datos de entrada",
+            LocalDateTime.now()
         );
-        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+        error.setErrors(errors);
+        
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
     }
     
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
+        log.error("Error interno del servidor: {}", ex.getMessage(), ex);
         ErrorResponse error = new ErrorResponse(
             HttpStatus.INTERNAL_SERVER_ERROR.value(),
             "Error interno del servidor",
             LocalDateTime.now()
         );
-        return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
     }
     
     public static class ErrorResponse {
         private int status;
         private String message;
         private LocalDateTime timestamp;
+        private Map<String, String> errors;
         
         public ErrorResponse(int status, String message, LocalDateTime timestamp) {
             this.status = status;
@@ -83,22 +104,15 @@ public class GlobalExceptionHandler {
             this.timestamp = timestamp;
         }
         
-        // Getters y setters
+        // Getters y Setters
         public int getStatus() { return status; }
         public void setStatus(int status) { this.status = status; }
+        
         public String getMessage() { return message; }
         public void setMessage(String message) { this.message = message; }
+        
         public LocalDateTime getTimestamp() { return timestamp; }
         public void setTimestamp(LocalDateTime timestamp) { this.timestamp = timestamp; }
-    }
-    
-    public static class ValidationErrorResponse extends ErrorResponse {
-        private Map<String, String> errors;
-        
-        public ValidationErrorResponse(int status, String message, LocalDateTime timestamp, Map<String, String> errors) {
-            super(status, message, timestamp);
-            this.errors = errors;
-        }
         
         public Map<String, String> getErrors() { return errors; }
         public void setErrors(Map<String, String> errors) { this.errors = errors; }

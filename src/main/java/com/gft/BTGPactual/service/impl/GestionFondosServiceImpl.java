@@ -1,4 +1,4 @@
-package com.gft.BTGPactual.service;
+package com.gft.BTGPactual.service.impl;
 
 import com.gft.BTGPactual.dto.CancelacionRequest;
 import com.gft.BTGPactual.dto.SuscripcionRequest;
@@ -7,10 +7,9 @@ import com.gft.BTGPactual.exception.RecursoNoEncontradoException;
 import com.gft.BTGPactual.exception.SaldoInsuficienteException;
 import com.gft.BTGPactual.exception.SuscripcionExistenteException;
 import com.gft.BTGPactual.model.*;
-import com.gft.BTGPactual.repository.ClienteRepository;
-import com.gft.BTGPactual.repository.FondoRepository;
-import com.gft.BTGPactual.repository.SuscripcionRepository;
-import com.gft.BTGPactual.repository.TransaccionRepository;
+import com.gft.BTGPactual.service.IDynamoDbService;
+import com.gft.BTGPactual.service.IGestionFondosService;
+import com.gft.BTGPactual.service.INotificacionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -25,148 +24,102 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class GestionFondosService {
+public class GestionFondosServiceImpl implements IGestionFondosService {
     
-    private final ClienteRepository clienteRepository;
-    private final FondoRepository fondoRepository;
-    private final SuscripcionRepository suscripcionRepository;
-    private final TransaccionRepository transaccionRepository;
-    private final NotificacionService notificacionService;
+    private final IDynamoDbService dynamoDbService;
+    private final INotificacionService notificacionService;
     
+    @Override
     @Transactional
     public TransaccionResponse suscribirseAFondo(SuscripcionRequest request) {
         log.info("Iniciando suscripción: clienteId={}, fondoId={}, monto={}", 
                 request.getClienteId(), request.getFondoId(), request.getMontoVinculado());
-        
-        // Validar que el cliente existe
-        Cliente cliente = clienteRepository.findById(request.getClienteId())
+        Cliente cliente = dynamoDbService.obtenerCliente(request.getClienteId())
                 .orElseThrow(() -> new RecursoNoEncontradoException("Cliente no encontrado"));
-        
-        // Validar que el fondo existe
-        Fondo fondo = fondoRepository.findById(request.getFondoId())
+        Fondo fondo = dynamoDbService.obtenerFondo(request.getFondoId())
                 .orElseThrow(() -> new RecursoNoEncontradoException("Fondo no encontrado"));
-        
-        // Validar que no tenga una suscripción activa al mismo fondo
-        if (suscripcionRepository.existsByClienteIdAndFondoIdAndEstado(
-                request.getClienteId(), request.getFondoId(), Suscripcion.EstadoSuscripcion.ACTIVA)) {
+        if (dynamoDbService.existeSuscripcionActiva(request.getClienteId(), request.getFondoId())) {
             throw new SuscripcionExistenteException(fondo.getNombre());
         }
-        
-        // Validar monto mínimo
         if (request.getMontoVinculado().compareTo(fondo.getMontoMinimo()) < 0) {
             throw new IllegalArgumentException(
                 String.format("El monto mínimo para el fondo %s es COP $%,.2f", 
                     fondo.getNombre(), fondo.getMontoMinimo())
             );
         }
-        
-        // Validar saldo suficiente
         if (cliente.getSaldo().compareTo(request.getMontoVinculado()) < 0) {
             throw new SaldoInsuficienteException(fondo.getNombre());
         }
-        
-        // Generar identificador único de transacción
         String identificadorTransaccion = generarIdentificadorTransaccion();
-        
-        // Crear suscripción
         Suscripcion suscripcion = new Suscripcion();
-        suscripcion.setCliente(cliente);
-        suscripcion.setFondo(fondo);
+        suscripcion.setId(UUID.randomUUID().toString());
+        suscripcion.setClienteId(request.getClienteId());
+        suscripcion.setFondoId(request.getFondoId());
         suscripcion.setMontoVinculado(request.getMontoVinculado());
         suscripcion.setFechaSuscripcion(LocalDateTime.now());
         suscripcion.setEstado(Suscripcion.EstadoSuscripcion.ACTIVA);
         suscripcion.setIdentificadorTransaccion(identificadorTransaccion);
-        
-        suscripcionRepository.save(suscripcion);
-        
-        // Actualizar saldo del cliente
+        dynamoDbService.guardarSuscripcion(suscripcion);
         cliente.setSaldo(cliente.getSaldo().subtract(request.getMontoVinculado()));
-        clienteRepository.save(cliente);
-        
-        // Crear transacción
+        dynamoDbService.guardarCliente(cliente);
         Transaccion transaccion = new Transaccion();
         transaccion.setIdentificadorTransaccion(identificadorTransaccion);
-        transaccion.setCliente(cliente);
-        transaccion.setFondo(fondo);
+        transaccion.setClienteId(request.getClienteId());
+        transaccion.setFondoId(request.getFondoId());
         transaccion.setTipo(Transaccion.TipoTransaccion.SUSCRIPCION);
         transaccion.setMonto(request.getMontoVinculado());
         transaccion.setFechaTransaccion(LocalDateTime.now());
         transaccion.setDescripcion("Suscripción al fondo " + fondo.getNombre());
         transaccion.setEstado(Transaccion.EstadoTransaccion.EXITOSA);
-        
-        transaccionRepository.save(transaccion);
-        
-        // Enviar notificación
+        dynamoDbService.guardarTransaccion(transaccion);
         notificacionService.enviarNotificacionSuscripcion(cliente, fondo, request.getMontoVinculado());
-        
         log.info("Suscripción exitosa: identificadorTransaccion={}", identificadorTransaccion);
-        
         return TransaccionResponse.fromTransaccion(transaccion);
     }
     
+    @Override
     @Transactional
     public TransaccionResponse cancelarSuscripcion(CancelacionRequest request) {
         log.info("Iniciando cancelación: clienteId={}, fondoId={}", 
                 request.getClienteId(), request.getFondoId());
-        
-        // Validar que el cliente existe
-        Cliente cliente = clienteRepository.findById(request.getClienteId())
+        Cliente cliente = dynamoDbService.obtenerCliente(request.getClienteId())
                 .orElseThrow(() -> new RecursoNoEncontradoException("Cliente no encontrado"));
-        
-        // Validar que el fondo existe
-        Fondo fondo = fondoRepository.findById(request.getFondoId())
+        Fondo fondo = dynamoDbService.obtenerFondo(request.getFondoId())
                 .orElseThrow(() -> new RecursoNoEncontradoException("Fondo no encontrado"));
-        
-        // Buscar suscripción activa
-        Suscripcion suscripcion = suscripcionRepository
-                .findByClienteIdAndFondoIdAndEstado(request.getClienteId(), request.getFondoId(), 
-                        Suscripcion.EstadoSuscripcion.ACTIVA)
+        List<Suscripcion> suscripciones = dynamoDbService.obtenerSuscripcionesPorCliente(request.getClienteId());
+        Suscripcion suscripcion = suscripciones.stream()
+                .filter(s -> s.getFondoId().equals(request.getFondoId()) && s.getEstado() == Suscripcion.EstadoSuscripcion.ACTIVA)
+                .findFirst()
                 .orElseThrow(() -> new RecursoNoEncontradoException(
                     "No se encontró una suscripción activa al fondo " + fondo.getNombre()));
-        
-        // Generar identificador único de transacción
         String identificadorTransaccion = generarIdentificadorTransaccion();
-        
-        // Cancelar suscripción
         suscripcion.setEstado(Suscripcion.EstadoSuscripcion.CANCELADA);
         suscripcion.setFechaCancelacion(LocalDateTime.now());
-        suscripcionRepository.save(suscripcion);
-        
-        // Devolver monto al cliente
+        dynamoDbService.guardarSuscripcion(suscripcion);
         cliente.setSaldo(cliente.getSaldo().add(suscripcion.getMontoVinculado()));
-        clienteRepository.save(cliente);
-        
-        // Crear transacción
+        dynamoDbService.guardarCliente(cliente);
         Transaccion transaccion = new Transaccion();
         transaccion.setIdentificadorTransaccion(identificadorTransaccion);
-        transaccion.setCliente(cliente);
-        transaccion.setFondo(fondo);
+        transaccion.setClienteId(request.getClienteId());
+        transaccion.setFondoId(request.getFondoId());
         transaccion.setTipo(Transaccion.TipoTransaccion.CANCELACION);
         transaccion.setMonto(suscripcion.getMontoVinculado());
         transaccion.setFechaTransaccion(LocalDateTime.now());
         transaccion.setDescripcion("Cancelación de suscripción al fondo " + fondo.getNombre());
         transaccion.setEstado(Transaccion.EstadoTransaccion.EXITOSA);
-        
-        transaccionRepository.save(transaccion);
-        
-        // Enviar notificación
+        dynamoDbService.guardarTransaccion(transaccion);
         notificacionService.enviarNotificacionCancelacion(cliente, fondo, suscripcion.getMontoVinculado());
-        
         log.info("Cancelación exitosa: identificadorTransaccion={}", identificadorTransaccion);
-        
         return TransaccionResponse.fromTransaccion(transaccion);
     }
     
-    public List<TransaccionResponse> obtenerHistorialTransacciones(Long clienteId) {
+    @Override
+    public List<TransaccionResponse> obtenerHistorialTransacciones(String clienteId) {
         log.info("Obteniendo historial de transacciones para clienteId={}", clienteId);
-        
-        // Validar que el cliente existe
-        if (!clienteRepository.existsById(clienteId)) {
+        if (dynamoDbService.obtenerCliente(clienteId).isEmpty()) {
             throw new RecursoNoEncontradoException("Cliente no encontrado");
         }
-        
-        List<Transaccion> transacciones = transaccionRepository.findByClienteIdOrderByFechaTransaccionDesc(clienteId);
-        
+        List<Transaccion> transacciones = dynamoDbService.obtenerTransaccionesPorCliente(clienteId);
         return transacciones.stream()
                 .map(TransaccionResponse::fromTransaccion)
                 .collect(Collectors.toList());

@@ -3,7 +3,7 @@ package com.gft.BTGPactual.controller;
 import com.gft.BTGPactual.dto.CancelacionRequest;
 import com.gft.BTGPactual.dto.SuscripcionRequest;
 import com.gft.BTGPactual.dto.TransaccionResponse;
-import com.gft.BTGPactual.service.GestionFondosService;
+import com.gft.BTGPactual.service.IGestionFondosService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,7 +19,7 @@ import java.util.List;
 @Slf4j
 public class GestionFondosController {
     
-    private final GestionFondosService gestionFondosService;
+    private final IGestionFondosService gestionFondosService;
     
     @PostMapping("/suscribirse")
     public ResponseEntity<TransaccionResponse> suscribirseAFondo(@Valid @RequestBody SuscripcionRequest request) {
@@ -36,7 +36,7 @@ public class GestionFondosController {
     }
     
     @GetMapping("/transacciones/{clienteId}")
-    public ResponseEntity<List<TransaccionResponse>> obtenerHistorialTransacciones(@PathVariable Long clienteId) {
+    public ResponseEntity<List<TransaccionResponse>> obtenerHistorialTransacciones(@PathVariable String clienteId) {
         log.info("Recibida petición de historial de transacciones para clienteId: {}", clienteId);
         List<TransaccionResponse> transacciones = gestionFondosService.obtenerHistorialTransacciones(clienteId);
         return ResponseEntity.ok(transacciones);

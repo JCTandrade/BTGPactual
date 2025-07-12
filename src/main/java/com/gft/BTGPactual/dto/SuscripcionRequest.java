@@ -10,10 +10,10 @@ import java.math.BigDecimal;
 public class SuscripcionRequest {
     
     @NotNull(message = "El ID del cliente es obligatorio")
-    private Long clienteId;
+    private String clienteId;
     
     @NotNull(message = "El ID del fondo es obligatorio")
-    private Long fondoId;
+    private String fondoId;
     
     @NotNull(message = "El monto a vincular es obligatorio")
     @Positive(message = "El monto debe ser mayor a cero")

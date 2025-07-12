@@ -6,10 +6,7 @@ import com.gft.BTGPactual.model.Cliente;
 import com.gft.BTGPactual.model.Fondo;
 import com.gft.BTGPactual.model.Suscripcion;
 import com.gft.BTGPactual.model.Transaccion;
-import com.gft.BTGPactual.repository.ClienteRepository;
-import com.gft.BTGPactual.repository.FondoRepository;
-import com.gft.BTGPactual.repository.SuscripcionRepository;
-import com.gft.BTGPactual.repository.TransaccionRepository;
+import com.gft.BTGPactual.service.impl.GestionFondosServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,22 +25,13 @@ import static org.mockito.Mockito.*;
 class GestionFondosServiceTest {
 
     @Mock
-    private ClienteRepository clienteRepository;
+    private IDynamoDbService dynamoDbService;
 
     @Mock
-    private FondoRepository fondoRepository;
-
-    @Mock
-    private SuscripcionRepository suscripcionRepository;
-
-    @Mock
-    private TransaccionRepository transaccionRepository;
-
-    @Mock
-    private NotificacionService notificacionService;
+    private INotificacionService notificacionService;
 
     @InjectMocks
-    private GestionFondosService gestionFondosService;
+    private GestionFondosServiceImpl gestionFondosService;
 
     private Cliente cliente;
     private Fondo fondo;
@@ -52,40 +40,38 @@ class GestionFondosServiceTest {
     @BeforeEach
     void setUp() {
         cliente = new Cliente();
-        cliente.setId(1L);
+        cliente.setId("1");
         cliente.setNombre("Juan Carlos");
         cliente.setEmail("juan@email.com");
         cliente.setSaldo(new BigDecimal("500000.00"));
 
         fondo = new Fondo();
-        fondo.setId(1L);
+        fondo.setId("1");
         fondo.setNombre("FPV_BTG_PACTUAL_RECAUDADORA COP");
         fondo.setMontoMinimo(new BigDecimal("75000.00"));
         fondo.setCategoria(Fondo.CategoriaFondo.FPV);
 
         suscripcionRequest = new SuscripcionRequest();
-        suscripcionRequest.setClienteId(1L);
-        suscripcionRequest.setFondoId(1L);
+        suscripcionRequest.setClienteId("1");
+        suscripcionRequest.setFondoId("1");
         suscripcionRequest.setMontoVinculado(new BigDecimal("100000.00"));
     }
 
     @Test
     void suscribirseAFondo_SaldoSuficiente_DeberiaSerExitoso() {
         // Arrange
-        when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
-        when(fondoRepository.findById(1L)).thenReturn(Optional.of(fondo));
-        when(suscripcionRepository.existsByClienteIdAndFondoIdAndEstado(any(), any(), any())).thenReturn(false);
-        when(suscripcionRepository.save(any())).thenReturn(new Suscripcion());
-        when(transaccionRepository.save(any())).thenReturn(new Transaccion());
+        when(dynamoDbService.obtenerCliente("1")).thenReturn(Optional.of(cliente));
+        when(dynamoDbService.obtenerFondo("1")).thenReturn(Optional.of(fondo));
+        when(dynamoDbService.existeSuscripcionActiva("1", "1")).thenReturn(false);
 
         // Act
         var resultado = gestionFondosService.suscribirseAFondo(suscripcionRequest);
 
         // Assert
         assertNotNull(resultado);
-        verify(clienteRepository).save(any(Cliente.class));
-        verify(suscripcionRepository).save(any(Suscripcion.class));
-        verify(transaccionRepository).save(any(Transaccion.class));
+        verify(dynamoDbService).guardarCliente(any(Cliente.class));
+        verify(dynamoDbService).guardarSuscripcion(any(Suscripcion.class));
+        verify(dynamoDbService).guardarTransaccion(any(Transaccion.class));
         verify(notificacionService).enviarNotificacionSuscripcion(any(), any(), any());
     }
 
@@ -93,9 +79,9 @@ class GestionFondosServiceTest {
     void suscribirseAFondo_SaldoInsuficiente_DeberiaLanzarExcepcion() {
         // Arrange
         suscripcionRequest.setMontoVinculado(new BigDecimal("600000.00")); // Más que el saldo disponible
-        when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
-        when(fondoRepository.findById(1L)).thenReturn(Optional.of(fondo));
-        when(suscripcionRepository.existsByClienteIdAndFondoIdAndEstado(any(), any(), any())).thenReturn(false);
+        when(dynamoDbService.obtenerCliente("1")).thenReturn(Optional.of(cliente));
+        when(dynamoDbService.obtenerFondo("1")).thenReturn(Optional.of(fondo));
+        when(dynamoDbService.existeSuscripcionActiva("1", "1")).thenReturn(false);
 
         // Act & Assert
         assertThrows(SaldoInsuficienteException.class, () -> {
@@ -107,9 +93,9 @@ class GestionFondosServiceTest {
     void suscribirseAFondo_MontoMenorAlMinimo_DeberiaLanzarExcepcion() {
         // Arrange
         suscripcionRequest.setMontoVinculado(new BigDecimal("50000.00")); // Menor al mínimo
-        when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
-        when(fondoRepository.findById(1L)).thenReturn(Optional.of(fondo));
-        when(suscripcionRepository.existsByClienteIdAndFondoIdAndEstado(any(), any(), any())).thenReturn(false);
+        when(dynamoDbService.obtenerCliente("1")).thenReturn(Optional.of(cliente));
+        when(dynamoDbService.obtenerFondo("1")).thenReturn(Optional.of(fondo));
+        when(dynamoDbService.existeSuscripcionActiva("1", "1")).thenReturn(false);
 
         // Act & Assert
         assertThrows(IllegalArgumentException.class, () -> {

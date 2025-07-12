@@ -10,8 +10,8 @@ import java.time.LocalDateTime;
 public class TransaccionResponse {
     
     private String identificadorTransaccion;
-    private String nombreCliente;
-    private String nombreFondo;
+    private String clienteId;
+    private String fondoId;
     private String tipoTransaccion;
     private BigDecimal monto;
     private LocalDateTime fechaTransaccion;
@@ -21,8 +21,8 @@ public class TransaccionResponse {
     public static TransaccionResponse fromTransaccion(Transaccion transaccion) {
         TransaccionResponse response = new TransaccionResponse();
         response.setIdentificadorTransaccion(transaccion.getIdentificadorTransaccion());
-        response.setNombreCliente(transaccion.getCliente().getNombre());
-        response.setNombreFondo(transaccion.getFondo().getNombre());
+        response.setClienteId(transaccion.getClienteId());
+        response.setFondoId(transaccion.getFondoId());
         response.setTipoTransaccion(transaccion.getTipo().name());
         response.setMonto(transaccion.getMonto());
         response.setFechaTransaccion(transaccion.getFechaTransaccion());

@@ -2,8 +2,8 @@ package com.gft.BTGPactual.exception;
 
 public class SaldoInsuficienteException extends RuntimeException {
     
-    public SaldoInsuficienteException(String nombreFondo) {
-        super("No tiene saldo disponible para vincularse al fondo " + nombreFondo);
+    public SaldoInsuficienteException(String fondoNombre) {
+        super(String.format("Saldo insuficiente para suscribirse al fondo %s", fondoNombre));
     }
     
     public SaldoInsuficienteException(String message, Throwable cause) {
