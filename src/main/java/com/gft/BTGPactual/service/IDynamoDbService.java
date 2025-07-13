@@ -28,4 +28,5 @@ public interface IDynamoDbService {
     Optional<Usuario> obtenerUsuarioPorUsername(String username);
     List<Usuario> obtenerTodosLosUsuarios();
     boolean existeUsuario(String username);
+    void eliminarUsuario(String username);
 } 

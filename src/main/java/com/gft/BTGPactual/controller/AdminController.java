@@ -6,9 +6,13 @@ import com.gft.BTGPactual.service.IDynamoDbService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/admin")
@@ -17,6 +21,23 @@ import java.util.List;
 public class AdminController {
     
     private final IDynamoDbService dynamoDbService;
+    
+    @GetMapping("/test")
+    public ResponseEntity<Map<String, Object>> testAuth() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String username = authentication.getName();
+        String authorities = authentication.getAuthorities().toString();
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("mensaje", "Acceso autorizado al endpoint admin");
+        response.put("username", username);
+        response.put("authorities", authorities);
+        response.put("timestamp", System.currentTimeMillis());
+        
+        log.info("Usuario {} accedió al endpoint admin con roles: {}", username, authorities);
+        
+        return ResponseEntity.ok(response);
+    }
     
     @GetMapping("/fondos")
     public ResponseEntity<List<Fondo>> obtenerFondos() {

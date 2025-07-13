@@ -52,7 +52,6 @@ public class DynamoDbInitializer implements CommandLineRunner {
 
     private void crearTablaSiNoExiste(String tableName, String partitionKey) {
         try {
-            // Verificar si la tabla existe
             DescribeTableRequest describeRequest = DescribeTableRequest.builder()
                     .tableName(tableName)
                     .build();
@@ -62,10 +61,8 @@ public class DynamoDbInitializer implements CommandLineRunner {
                 log.info("Tabla {} ya existe", tableName);
                 return;
             } catch (ResourceNotFoundException e) {
-                // La tabla no existe, proceder a crearla
             }
 
-            // Crear la tabla
             CreateTableRequest createRequest = CreateTableRequest.builder()
                     .tableName(tableName)
                     .attributeDefinitions(AttributeDefinition.builder()
