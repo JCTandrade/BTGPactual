@@ -4,6 +4,7 @@ import com.gft.BTGPactual.model.Cliente;
 import com.gft.BTGPactual.model.Fondo;
 import com.gft.BTGPactual.model.Suscripcion;
 import com.gft.BTGPactual.model.Transaccion;
+import com.gft.BTGPactual.model.Usuario;
 import com.gft.BTGPactual.service.IDynamoDbService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +38,9 @@ public class DynamoDbServiceImpl implements IDynamoDbService {
 
     @Value("${aws.dynamodb.transacciones-table}")
     private String transaccionesTableName;
+
+    @Value("${aws.dynamodb.usuarios-table}")
+    private String usuariosTableName;
 
     @Override
     public void guardarFondo(Fondo fondo) {
@@ -197,6 +201,54 @@ public class DynamoDbServiceImpl implements IDynamoDbService {
             return transaccion != null;
         } catch (DynamoDbException e) {
             log.error("Error al verificar transacción en DynamoDB: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    @Override
+    public void guardarUsuario(Usuario usuario) {
+        try {
+            DynamoDbTable<Usuario> table = dynamoDbEnhancedClient.table(usuariosTableName, TableSchema.fromBean(Usuario.class));
+            table.putItem(usuario);
+            log.info("Usuario guardado en DynamoDB: {}", usuario.getUsername());
+        } catch (DynamoDbException e) {
+            log.error("Error al guardar usuario en DynamoDB: {}", e.getMessage());
+            throw new RuntimeException("Error al guardar usuario", e);
+        }
+    }
+
+    @Override
+    public Optional<Usuario> obtenerUsuarioPorUsername(String username) {
+        try {
+            DynamoDbTable<Usuario> table = dynamoDbEnhancedClient.table(usuariosTableName, TableSchema.fromBean(Usuario.class));
+            return table.scan().items().stream()
+                    .filter(u -> username.equals(u.getUsername()))
+                    .findFirst();
+        } catch (DynamoDbException e) {
+            log.error("Error al obtener usuario de DynamoDB: {}", e.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    @Override
+    public List<Usuario> obtenerTodosLosUsuarios() {
+        try {
+            DynamoDbTable<Usuario> table = dynamoDbEnhancedClient.table(usuariosTableName, TableSchema.fromBean(Usuario.class));
+            return table.scan().items().stream().collect(Collectors.toList());
+        } catch (DynamoDbException e) {
+            log.error("Error al obtener usuarios de DynamoDB: {}", e.getMessage());
+            return List.of();
+        }
+    }
+
+    @Override
+    public boolean existeUsuario(String username) {
+        try {
+            DynamoDbTable<Usuario> table = dynamoDbEnhancedClient.table(usuariosTableName, TableSchema.fromBean(Usuario.class));
+            return table.scan().items().stream()
+                    .anyMatch(u -> username.equals(u.getUsername()));
+        } catch (DynamoDbException e) {
+            log.error("Error al verificar usuario en DynamoDB: {}", e.getMessage());
             return false;
         }
     }

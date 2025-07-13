@@ -29,16 +29,25 @@ public class DynamoDbInitializer implements CommandLineRunner {
     @Value("${aws.dynamodb.transacciones-table}")
     private String transaccionesTableName;
 
+    @Value("${aws.dynamodb.usuarios-table}")
+    private String usuariosTableName;
+
     @Override
     public void run(String... args) throws Exception {
-        log.info("Inicializando tablas de DynamoDB...");
-        
-        crearTablaSiNoExiste(fondosTableName, "id");
-        crearTablaSiNoExiste(clientesTableName, "id");
-        crearTablaSiNoExiste(suscripcionesTableName, "id");
-        crearTablaSiNoExiste(transaccionesTableName, "identificadorTransaccion");
-        
-        log.info("Inicialización de DynamoDB completada");
+        try {
+            log.info("Inicializando tablas de DynamoDB...");
+            
+            crearTablaSiNoExiste(fondosTableName, "id");
+            crearTablaSiNoExiste(clientesTableName, "id");
+            crearTablaSiNoExiste(suscripcionesTableName, "id");
+            crearTablaSiNoExiste(transaccionesTableName, "identificadorTransaccion");
+            crearTablaSiNoExiste(usuariosTableName, "id");
+            
+            log.info("Inicialización de DynamoDB completada");
+        } catch (Exception e) {
+            log.warn("No se pudo inicializar DynamoDB. Error: {}. La aplicación continuará sin DynamoDB.", e.getMessage());
+            log.warn("Para usar DynamoDB, configure las credenciales de AWS en las variables de entorno o en env.properties");
+        }
     }
 
     private void crearTablaSiNoExiste(String tableName, String partitionKey) {
@@ -75,6 +84,8 @@ public class DynamoDbInitializer implements CommandLineRunner {
             
         } catch (DynamoDbException e) {
             log.error("Error al crear tabla {}: {}", tableName, e.getMessage());
+        } catch (Exception e) {
+            log.error("Error inesperado al crear tabla {}: {}", tableName, e.getMessage());
         }
     }
 } 

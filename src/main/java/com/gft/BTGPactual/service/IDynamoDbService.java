@@ -4,6 +4,7 @@ import com.gft.BTGPactual.model.Cliente;
 import com.gft.BTGPactual.model.Fondo;
 import com.gft.BTGPactual.model.Suscripcion;
 import com.gft.BTGPactual.model.Transaccion;
+import com.gft.BTGPactual.model.Usuario;
 
 import java.util.List;
 import java.util.Optional;
@@ -22,4 +23,9 @@ public interface IDynamoDbService {
     void guardarTransaccion(Transaccion transaccion);
     List<Transaccion> obtenerTransaccionesPorCliente(String clienteId);
     boolean existeTransaccion(String identificadorTransaccion);
+    
+    void guardarUsuario(Usuario usuario);
+    Optional<Usuario> obtenerUsuarioPorUsername(String username);
+    List<Usuario> obtenerTodosLosUsuarios();
+    boolean existeUsuario(String username);
 } 

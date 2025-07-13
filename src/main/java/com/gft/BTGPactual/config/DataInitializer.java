@@ -21,10 +21,15 @@ public class DataInitializer implements CommandLineRunner {
     
     @Override
     public void run(String... args) throws Exception {
-        log.info("Inicializando datos de prueba en DynamoDB...");
-        crearFondos();
-        crearClientes();
-        log.info("Datos de prueba inicializados correctamente en DynamoDB");
+        try {
+            log.info("Inicializando datos de prueba en DynamoDB...");
+            crearFondos();
+            crearClientes();
+            log.info("Datos de prueba inicializados correctamente en DynamoDB");
+        } catch (Exception e) {
+            log.warn("No se pudo inicializar datos en DynamoDB. Error: {}. La aplicación continuará sin datos de prueba.", e.getMessage());
+            log.warn("Para usar DynamoDB, configure las credenciales de AWS en las variables de entorno o en env.properties");
+        }
     }
     
     private void crearFondos() {
