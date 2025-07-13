@@ -252,4 +252,17 @@ public class DynamoDbServiceImpl implements IDynamoDbService {
             return false;
         }
     }
+
+    @Override
+    public void eliminarUsuario(String username) {
+        try {
+            DynamoDbTable<Usuario> table = dynamoDbEnhancedClient.table(usuariosTableName, TableSchema.fromBean(Usuario.class));
+            Key key = Key.builder().partitionValue(username).build();
+            table.deleteItem(key);
+            log.info("Usuario eliminado de DynamoDB: {}", username);
+        } catch (DynamoDbException e) {
+            log.error("Error al eliminar usuario de DynamoDB: {}", e.getMessage());
+            throw new RuntimeException("Error al eliminar usuario", e);
+        }
+    }
 } 

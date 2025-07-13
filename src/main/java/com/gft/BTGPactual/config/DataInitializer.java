@@ -2,15 +2,16 @@ package com.gft.BTGPactual.config;
 
 import com.gft.BTGPactual.model.Cliente;
 import com.gft.BTGPactual.model.Fondo;
+import com.gft.BTGPactual.model.Usuario;
 import com.gft.BTGPactual.service.IDynamoDbService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
@@ -18,17 +19,33 @@ import java.util.UUID;
 public class DataInitializer implements CommandLineRunner {
     
     private final IDynamoDbService dynamoDbService;
+    private final PasswordEncoder passwordEncoder;
     
     @Override
     public void run(String... args) throws Exception {
         try {
             log.info("Inicializando datos de prueba en DynamoDB...");
+            crearUsuarioAdmin();
             crearFondos();
             crearClientes();
             log.info("Datos de prueba inicializados correctamente en DynamoDB");
         } catch (Exception e) {
             log.warn("No se pudo inicializar datos en DynamoDB. Error: {}. La aplicación continuará sin datos de prueba.", e.getMessage());
             log.warn("Para usar DynamoDB, configure las credenciales de AWS en las variables de entorno o en env.properties");
+        }
+    }
+    
+    private void crearUsuarioAdmin() {
+        if (!dynamoDbService.existeUsuario("admin")) {
+            Usuario admin = new Usuario();
+            admin.setUsername("admin");
+            admin.setPassword(passwordEncoder.encode("admin123"));
+            admin.setRol(Usuario.Rol.ADMIN);
+            
+            dynamoDbService.guardarUsuario(admin);
+            log.info("Usuario administrador creado: admin/admin123");
+        } else {
+            log.info("Usuario administrador ya existe");
         }
     }
     
