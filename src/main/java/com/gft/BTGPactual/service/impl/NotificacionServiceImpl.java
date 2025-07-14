@@ -5,9 +5,15 @@ import com.gft.BTGPactual.model.Fondo;
 import com.gft.BTGPactual.service.INotificacionService;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.stereotype.Service;
+import software.amazon.awssdk.services.ses.SesClient;
+import software.amazon.awssdk.services.ses.model.*;
+import software.amazon.awssdk.services.sns.SnsClient;
+import software.amazon.awssdk.services.sns.model.PublishRequest;
+import software.amazon.awssdk.services.sns.model.PublishResponse;
 
 import java.math.BigDecimal;
 
@@ -15,7 +21,15 @@ import java.math.BigDecimal;
 @RequiredArgsConstructor
 @Slf4j
 public class NotificacionServiceImpl implements INotificacionService {
-    
+
+    @Value("${email.sender}")
+    private String emailRemitente;
+
+
+
+    private final SnsClient snsClient;
+    private final SesClient sesClient;
+
     @Override
     public void enviarNotificacionSuscripcion(Cliente cliente, Fondo fondo, BigDecimal monto) {
         log.info("Enviando notificación de suscripción a cliente: {}", cliente.getEmail());
@@ -74,11 +88,35 @@ public class NotificacionServiceImpl implements INotificacionService {
     }
     
     private void enviarEmail(String email, String asunto, String mensaje) {
+
+            SendEmailRequest emailRequest = SendEmailRequest.builder()
+                    .destination(Destination.builder()
+                            .toAddresses(email)
+                            .build())
+                    .message(Message.builder()
+                            .subject(Content.builder().data(asunto).build())
+                            .body(Body.builder().text(Content.builder().data(mensaje).build()).build())
+                            .build())
+                    .source(emailRemitente)
+                    .build();
+
+            sesClient.sendEmail(emailRequest);
+            System.out.println("Email enviado con SES");
+
+
         log.info("📧 Email enviado a {}: {}", email, asunto);
         log.debug("Contenido del email: {}", mensaje);
     }
     
     private void enviarSMS(String telefono, String mensaje) {
+
+            PublishRequest request = PublishRequest.builder()
+                    .message(mensaje)
+                    .phoneNumber(telefono)
+                    .build();
+            PublishResponse result = snsClient.publish(request);
+
+        log.info("SMS enviado. MessageId: {}", result.messageId());
         log.info("📱 SMS enviado a {}: {}", telefono, mensaje);
     }
 } 
