@@ -17,10 +17,10 @@ import java.util.List;
 @RequiredArgsConstructor
 @Slf4j
 public class DataInitializer implements CommandLineRunner {
-    
+
     private final IDynamoDbService dynamoDbService;
     private final PasswordEncoder passwordEncoder;
-    
+
     @Override
     public void run(String... args) throws Exception {
         try {
@@ -34,21 +34,23 @@ public class DataInitializer implements CommandLineRunner {
             log.warn("Para usar DynamoDB, configure las credenciales de AWS en las variables de entorno o en env.properties");
         }
     }
-    
+
     private void crearUsuarioAdmin() {
         if (!dynamoDbService.existeUsuario("admin")) {
             Usuario admin = new Usuario();
+            admin.setId("1");
             admin.setUsername("admin");
             admin.setPassword(passwordEncoder.encode("admin123"));
-            admin.setRol(Usuario.Rol.ADMIN);
-            
+            admin.setRoles(List.of(Usuario.Rol.ADMIN));
+
+
             dynamoDbService.guardarUsuario(admin);
             log.info("Usuario administrador creado: admin/admin123");
         } else {
             log.info("Usuario administrador ya existe");
         }
     }
-    
+
     private void crearFondos() {
         List<Fondo> fondosExistentes = dynamoDbService.obtenerTodosLosFondos();
         if (fondosExistentes.isEmpty()) {
@@ -59,7 +61,7 @@ public class DataInitializer implements CommandLineRunner {
             fondo1.setCategoria(Fondo.CategoriaFondo.FPV);
             fondo1.setActivo(true);
             dynamoDbService.guardarFondo(fondo1);
-            
+
             Fondo fondo2 = new Fondo();
             fondo2.setId("2");
             fondo2.setNombre("FPV_BTG_PACTUAL_ECOPETROL");
@@ -67,7 +69,7 @@ public class DataInitializer implements CommandLineRunner {
             fondo2.setCategoria(Fondo.CategoriaFondo.FPV);
             fondo2.setActivo(true);
             dynamoDbService.guardarFondo(fondo2);
-            
+
             Fondo fondo3 = new Fondo();
             fondo3.setId("3");
             fondo3.setNombre("DEUDAPRIVADA");
@@ -75,7 +77,7 @@ public class DataInitializer implements CommandLineRunner {
             fondo3.setCategoria(Fondo.CategoriaFondo.FIC);
             fondo3.setActivo(true);
             dynamoDbService.guardarFondo(fondo3);
-            
+
             Fondo fondo4 = new Fondo();
             fondo4.setId("4");
             fondo4.setNombre("FDO-ACCIONES");
@@ -83,7 +85,7 @@ public class DataInitializer implements CommandLineRunner {
             fondo4.setCategoria(Fondo.CategoriaFondo.FIC);
             fondo4.setActivo(true);
             dynamoDbService.guardarFondo(fondo4);
-            
+
             Fondo fondo5 = new Fondo();
             fondo5.setId("5");
             fondo5.setNombre("FPV_BTG_PACTUAL_DINAMICA");
@@ -91,11 +93,11 @@ public class DataInitializer implements CommandLineRunner {
             fondo5.setCategoria(Fondo.CategoriaFondo.FPV);
             fondo5.setActivo(true);
             dynamoDbService.guardarFondo(fondo5);
-            
+
             log.info("5 fondos de inversión creados en DynamoDB");
         }
     }
-    
+
     private void crearClientes() {
         List<Cliente> clientesExistentes = dynamoDbService.obtenerTodosLosClientes();
         if (clientesExistentes.isEmpty()) {
@@ -108,7 +110,7 @@ public class DataInitializer implements CommandLineRunner {
             cliente1.setTipoNotificacion(Cliente.TipoNotificacion.EMAIL);
             cliente1.setActivo(true);
             dynamoDbService.guardarCliente(cliente1);
-            
+
             Cliente cliente2 = new Cliente();
             cliente2.setId("2");
             cliente2.setNombre("María González");
@@ -118,7 +120,7 @@ public class DataInitializer implements CommandLineRunner {
             cliente2.setTipoNotificacion(Cliente.TipoNotificacion.SMS);
             cliente2.setActivo(true);
             dynamoDbService.guardarCliente(cliente2);
-            
+
             Cliente cliente3 = new Cliente();
             cliente3.setId("3");
             cliente3.setNombre("Carlos Rodríguez");
@@ -128,8 +130,8 @@ public class DataInitializer implements CommandLineRunner {
             cliente3.setTipoNotificacion(Cliente.TipoNotificacion.AMBOS);
             cliente3.setActivo(true);
             dynamoDbService.guardarCliente(cliente3);
-            
+
             log.info("3 clientes de prueba creados en DynamoDB");
         }
     }
-} 
+}
