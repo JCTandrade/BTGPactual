@@ -1,6 +1,6 @@
 package com.gft.BTGPactual.config;
 
-import com.gft.BTGPactual.config.JwtAuthenticationFilter;
+import com.gft.BTGPactual.config.jwt.JwtAuthorizationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,7 +21,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
 
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final JwtAuthorizationFilter jwtAuthorizationFilter;
 
     private final UserDetailsService userDetailsService;
 
@@ -30,21 +30,21 @@ public class SecurityConfig {
 
 
         http
-                .csrf(csrf -> csrf.disable())
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/auth/").permitAll()
-                        .requestMatchers("/api/v1/fondos/").permitAll()
-                        .requestMatchers("/api/v1/admin/").hasAuthority("ADMIN")
-                        .anyRequest().authenticated()
-                )
+            .csrf(csrf -> csrf.disable())
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/api/v1/auth/**").permitAll()
+                .requestMatchers("/api/v1/fondos/**").permitAll()
+                .requestMatchers("/api/v1/admin/**").hasAuthority("ADMIN")
+                .anyRequest().authenticated()
+            )
 
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.disable()));
-
+            .addFilterBefore(jwtAuthorizationFilter, UsernamePasswordAuthenticationFilter.class)
+            .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.disable()));
+        
         return http.build();
     }
-
+    
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
@@ -56,4 +56,4 @@ public class SecurityConfig {
         builder.userDetailsService(userDetailsService).passwordEncoder(passwordEncoder);
         return builder.build();
     }
-}
+} 

@@ -1,6 +1,7 @@
 package com.gft.BTGPactual.controller;
 
-import com.gft.BTGPactual.config.JwtUtils;
+
+import com.gft.BTGPactual.config.jwt.JwtUtils;
 import com.gft.BTGPactual.dto.AuthRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

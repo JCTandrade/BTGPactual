@@ -157,9 +157,9 @@ public class DynamoDbServiceImpl implements IDynamoDbService {
         try {
             DynamoDbTable<Suscripcion> table = dynamoDbEnhancedClient.table(suscripcionesTableName, TableSchema.fromBean(Suscripcion.class));
             return table.scan().items().stream()
-                    .anyMatch(s -> clienteId.equals(s.getClienteId()) &&
-                            fondoId.equals(s.getFondoId()) &&
-                            s.getEstado() == Suscripcion.EstadoSuscripcion.ACTIVA);
+                    .anyMatch(s -> clienteId.equals(s.getClienteId()) && 
+                                 fondoId.equals(s.getFondoId()) && 
+                                 s.getEstado() == Suscripcion.EstadoSuscripcion.ACTIVA);
         } catch (DynamoDbException e) {
             log.error("Error al verificar suscripción en DynamoDB: {}", e.getMessage());
             return false;
@@ -192,18 +192,7 @@ public class DynamoDbServiceImpl implements IDynamoDbService {
         }
     }
 
-    @Override
-    public boolean existeTransaccion(String identificadorTransaccion) {
-        try {
-            DynamoDbTable<Transaccion> table = dynamoDbEnhancedClient.table(transaccionesTableName, TableSchema.fromBean(Transaccion.class));
-            Key key = Key.builder().partitionValue(identificadorTransaccion).build();
-            Transaccion transaccion = table.getItem(key);
-            return transaccion != null;
-        } catch (DynamoDbException e) {
-            log.error("Error al verificar transacción en DynamoDB: {}", e.getMessage());
-            return false;
-        }
-    }
+
 
     @Override
     public void guardarUsuario(Usuario usuario) {
@@ -244,4 +233,4 @@ public class DynamoDbServiceImpl implements IDynamoDbService {
     }
 
 
-}
+} 
