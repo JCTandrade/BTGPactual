@@ -157,9 +157,9 @@ public class DynamoDbServiceImpl implements IDynamoDbService {
         try {
             DynamoDbTable<Suscripcion> table = dynamoDbEnhancedClient.table(suscripcionesTableName, TableSchema.fromBean(Suscripcion.class));
             return table.scan().items().stream()
-                    .anyMatch(s -> clienteId.equals(s.getClienteId()) && 
-                                 fondoId.equals(s.getFondoId()) && 
-                                 s.getEstado() == Suscripcion.EstadoSuscripcion.ACTIVA);
+                    .anyMatch(s -> clienteId.equals(s.getClienteId()) &&
+                            fondoId.equals(s.getFondoId()) &&
+                            s.getEstado() == Suscripcion.EstadoSuscripcion.ACTIVA);
         } catch (DynamoDbException e) {
             log.error("Error al verificar suscripción en DynamoDB: {}", e.getMessage());
             return false;
@@ -230,16 +230,6 @@ public class DynamoDbServiceImpl implements IDynamoDbService {
         }
     }
 
-    @Override
-    public List<Usuario> obtenerTodosLosUsuarios() {
-        try {
-            DynamoDbTable<Usuario> table = dynamoDbEnhancedClient.table(usuariosTableName, TableSchema.fromBean(Usuario.class));
-            return table.scan().items().stream().collect(Collectors.toList());
-        } catch (DynamoDbException e) {
-            log.error("Error al obtener usuarios de DynamoDB: {}", e.getMessage());
-            return List.of();
-        }
-    }
 
     @Override
     public boolean existeUsuario(String username) {
@@ -253,16 +243,5 @@ public class DynamoDbServiceImpl implements IDynamoDbService {
         }
     }
 
-    @Override
-    public void eliminarUsuario(String username) {
-        try {
-            DynamoDbTable<Usuario> table = dynamoDbEnhancedClient.table(usuariosTableName, TableSchema.fromBean(Usuario.class));
-            Key key = Key.builder().partitionValue(username).build();
-            table.deleteItem(key);
-            log.info("Usuario eliminado de DynamoDB: {}", username);
-        } catch (DynamoDbException e) {
-            log.error("Error al eliminar usuario de DynamoDB: {}", e.getMessage());
-            throw new RuntimeException("Error al eliminar usuario", e);
-        }
-    }
-} 
+
+}

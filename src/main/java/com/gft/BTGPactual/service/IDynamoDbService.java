@@ -1,5 +1,4 @@
 package com.gft.BTGPactual.service;
-
 import com.gft.BTGPactual.model.Cliente;
 import com.gft.BTGPactual.model.Fondo;
 import com.gft.BTGPactual.model.Suscripcion;
@@ -22,11 +21,13 @@ public interface IDynamoDbService {
     boolean existeSuscripcionActiva(String clienteId, String fondoId);
     void guardarTransaccion(Transaccion transaccion);
     List<Transaccion> obtenerTransaccionesPorCliente(String clienteId);
+
+
     boolean existeTransaccion(String identificadorTransaccion);
-    
+
     void guardarUsuario(Usuario usuario);
     Optional<Usuario> obtenerUsuarioPorUsername(String username);
-    List<Usuario> obtenerTodosLosUsuarios();
+
     boolean existeUsuario(String username);
-    void eliminarUsuario(String username);
-} 
+
+}
