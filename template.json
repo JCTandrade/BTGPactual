@@ -1,0 +1,335 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Infraestructura para desplegar un API con ECS, ECR, Secrets Manager, Load Balancer, API Gateway, SNS y SES. Incluye configuración de permisos, logs y seguridad.",
+
+  
+  "Parameters": {
+    
+    "AwsKeyId": {
+      "Type": "String",
+      "NoEcho": true,
+      "Description": "ID de la clave de acceso de AWS."
+    },
+    "AwsSecretKey": {
+      "Type": "String",
+      "NoEcho": true,
+      "Description": "Clave de acceso secreta de AWS."
+    },
+    "SESIdentityEmail": {
+      "Type": "String",
+      "Description": "Email verificado para SES."
+    },
+    "JwtSecret": {
+      "Type": "String",
+      "NoEcho": true,
+      "Description": "Secreto JWT para la aplicación."
+    }
+  },
+
+  "Resources": {
+
+    
+    "Vpc": {
+      "Type": "AWS::EC2::VPC",
+      "Properties": {
+        "CidrBlock": "10.0.0.0/16"
+      }
+    },
+    "PublicSubnet": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": { "Ref": "Vpc" },
+        "CidrBlock": "10.0.1.0/24",
+        "MapPublicIpOnLaunch": true
+      }
+    },
+    "Subnet2": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": { "Ref": "Vpc" },
+        "CidrBlock": "10.0.2.0/24",
+        "AvailabilityZone": { "Fn::Select": [ "1", { "Fn::GetAZs": "" } ] },
+        "MapPublicIpOnLaunch": true
+      }
+    },
+
+    
+    "ECSLogGroup": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": "/ecs/mi-app",
+        "RetentionInDays": 14
+      }
+    },
+
+    
+    "ECRRepository": {
+      "Type": "AWS::ECR::Repository",
+      "Properties": {
+        "RepositoryName": "mi-app-repo"
+      }
+    },
+    "ECSCluster": {
+      "Type": "AWS::ECS::Cluster",
+      "Properties": {
+        "ClusterName": "MiAppCluster"
+      }
+    },
+    "ECSTaskExecutionRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [{
+            "Effect": "Allow",
+            "Principal": { "Service": [ "ecs-tasks.amazonaws.com" ] },
+            "Action": "sts:AssumeRole"
+          }]
+        },
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
+          "arn:aws:iam::aws:policy/SecretsManagerReadWrite"
+        ],
+        "Policies": [
+          {
+            "PolicyName": "ECSAllowSNSandSES",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [ "sns:Publish" ],
+                  "Resource": "*"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [ "ses:SendEmail", "ses:SendRawEmail" ],
+                  "Resource": { "Fn::GetAtt": [ "SESIdentity", "Arn" ] }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "ECSTaskDefinition": {
+      "Type": "AWS::ECS::TaskDefinition",
+      "Properties": {
+        "Cpu": "256",
+        "Memory": "512",
+        "Family": "MiAppTaskDef",
+        "NetworkMode": "awsvpc",
+        "RequiresCompatibilities": [ "FARGATE" ],
+        "ExecutionRoleArn": { "Ref": "ECSTaskExecutionRole" },
+        "ContainerDefinitions": [
+          {
+            "Name": "mi-app-container",
+            "Image": { "Fn::Sub": "${ECRRepository.RepositoryUri}:latest" },
+            "LogConfiguration": {
+              "LogDriver": "awslogs",
+              "Options": {
+                "awslogs-group": { "Ref": "ECSLogGroup" },
+                "awslogs-region": { "Ref": "AWS::Region" },
+                "awslogs-stream-prefix": "ecs"
+              }
+            },
+            
+            "Secrets": [
+              {
+                "Name": "AWS_ACCESS_KEY_ID",
+                "ValueFrom": { "Ref": "SecretManagerAwsKeyId" }
+              },
+              {
+                "Name": "AWS_SECRET_ACCESS_KEY",
+                "ValueFrom": { "Ref": "SecretManagerAwsSecretKey" }
+              },
+              {
+                "Name": "JWT_SECRET",
+                "ValueFrom": { "Ref": "SecretJwtSecret" }
+              }
+            ],
+            "PortMappings": [
+              { "ContainerPort": 80 }
+            ]
+          }
+        ]
+      }
+    },
+
+    
+    "ECSServiceSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Permitir trafico HTTP al servicio ECS",
+        "VpcId": { "Ref": "Vpc" },
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 80,
+            "ToPort": 80,
+            "CidrIp": "0.0.0.0/0"
+          }
+        ]
+      }
+    },
+
+    
+    "LoadBalancer": {
+      "Type": "AWS::ElasticLoadBalancingV2::LoadBalancer",
+      "Properties": {
+        "Name": "MiAppLB",
+        "Subnets": [ { "Ref": "PublicSubnet" }, { "Ref": "Subnet2" } ],
+        "SecurityGroups": [ { "Ref": "ECSServiceSecurityGroup" } ],
+        "Scheme": "internet-facing",
+        "Type": "application"
+      }
+    },
+    "LoadBalancerTargetGroup": {
+      "Type": "AWS::ElasticLoadBalancingV2::TargetGroup",
+      "Properties": {
+        "Name": "MiAppTG",
+        "VpcId": { "Ref": "Vpc" },
+        "Protocol": "HTTP",
+        "Port": 80,
+        "TargetType": "ip",
+        "HealthCheckPath": "/"
+      }
+    },
+    "LoadBalancerListener": {
+      "Type": "AWS::ElasticLoadBalancingV2::Listener",
+      "Properties": {
+        "DefaultActions": [
+          {
+            "Type": "forward",
+            "TargetGroupArn": { "Ref": "LoadBalancerTargetGroup" }
+          }
+        ],
+        "LoadBalancerArn": { "Ref": "LoadBalancer" },
+        "Port": 80,
+        "Protocol": "HTTP"
+      }
+    },
+    "ECSService": {
+      "Type": "AWS::ECS::Service",
+      "Properties": {
+        "Cluster": { "Ref": "ECSCluster" },
+        "DesiredCount": 1,
+        "LaunchType": "FARGATE",
+        "TaskDefinition": { "Ref": "ECSTaskDefinition" },
+        "NetworkConfiguration": {
+          "AwsvpcConfiguration": {
+            "AssignPublicIp": "ENABLED",
+            "Subnets": [ { "Ref": "PublicSubnet" } ],
+            "SecurityGroups": [ { "Ref": "ECSServiceSecurityGroup" } ]
+          }
+        },
+        "LoadBalancers": [
+          {
+            "TargetGroupArn": { "Ref": "LoadBalancerTargetGroup" },
+            "ContainerName": "mi-app-container",
+            "ContainerPort": 80
+          }
+        ]
+      }
+    },
+
+   
+    "ApiGatewayVpcLink": {
+      "Type": "AWS::ApiGatewayV2::VpcLink",
+      "Properties": {
+        "Name": "MiAppVPCLink",
+        "SubnetIds": [ { "Ref": "PublicSubnet" } ]
+      }
+    },
+    "ApiGateway": {
+      "Type": "AWS::ApiGatewayV2::Api",
+      "Properties": {
+        "Name": "MiAppApi",
+        "ProtocolType": "HTTP"
+      }
+    },
+    "ApiGatewayIntegration": {
+      "Type": "AWS::ApiGatewayV2::Integration",
+      "Properties": {
+        "ApiId": { "Ref": "ApiGateway" },
+        "IntegrationType": "HTTP_PROXY",
+        "IntegrationUri": { "Fn::Sub": "http://${LoadBalancer.DNSName}/" },
+        "ConnectionType": "VPC_LINK",
+        "ConnectionId": { "Ref": "ApiGatewayVpcLink" },
+        "PayloadFormatVersion": "1.0"
+      }
+    },
+    "ApiGatewayRoute": {
+      "Type": "AWS::ApiGatewayV2::Route",
+      "Properties": {
+        "ApiId": { "Ref": "ApiGateway" },
+        "RouteKey": "ANY /{proxy+}",
+        "Target": { "Fn::Sub": "integrations/${ApiGatewayIntegration}" }
+      }
+    },
+    "ApiGatewayStage": {
+      "Type": "AWS::ApiGatewayV2::Stage",
+      "Properties": {
+        "ApiId": { "Ref": "ApiGateway" },
+        "StageName": "prod",
+        "AutoDeploy": true
+      }
+    },
+
+    
+    
+    "SESIdentity": {
+      "Type": "AWS::SES::EmailIdentity",
+      "Properties": {
+        "EmailIdentity": { "Ref": "SESIdentityEmail" }
+      }
+    },
+
+    
+    "SecretManagerAwsKeyId": {
+      "Type": "AWS::SecretsManager::Secret",
+      "Properties": {
+        "Name": "AwsKey",
+        "Description": "Secreto para la aplicación ECS.",
+        "SecretString": { "Ref": "AwsKeyId" }
+      }
+    },
+    "SecretManagerAwsSecretKey": {
+      "Type": "AWS::SecretsManager::Secret",
+      "Properties": {
+        "Name": "AwsSecret",
+        "Description": "Secreto para la aplicación ECS.",
+        "SecretString": { "Ref": "AwsSecretKey" }
+      }
+    }, 
+    "SecretJwtSecret": {
+      "Type": "AWS::SecretsManager::Secret",
+      "Properties": {
+        "Name": "JwtSecret",
+        "Description": "Secreto JWT para la aplicación ECS.",
+        "SecretString": { "Ref": "JwtSecret" }
+      }
+    }
+  },
+
+  
+  "Outputs": {
+    "ECRRepositoryUri": {
+      "Description": "URI del repositorio ECR para subir la imagen docker.",
+      "Value": { "Fn::GetAtt": [ "ECRRepository", "RepositoryUri" ] }
+    },
+    "LoadBalancerDNS": {
+      "Description": "URL del Load Balancer.",
+      "Value": { "Fn::GetAtt": [ "LoadBalancer", "DNSName" ] }
+    },
+    "ApiGatewayEndpoint": {
+      "Description": "URL del API Gateway.",
+      "Value": { "Fn::Sub": "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/prod" }
+    },
+    
+    "SESIdentity": {
+      "Description": "Email verificado en SES.",
+      "Value": { "Ref": "SESIdentity" }
+    }
+  }
+}
