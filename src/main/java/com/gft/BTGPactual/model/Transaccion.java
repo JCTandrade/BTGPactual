@@ -34,7 +34,7 @@ public class Transaccion {
     }
     
     public enum TipoTransaccion {
-        SUSCRIPCION, CANCELACION
+        APERTURA, CANCELACION
     }
     
     public enum EstadoTransaccion {

@@ -66,7 +66,7 @@ public class GestionFondosServiceImpl implements IGestionFondosService {
         transaccion.setIdentificadorTransaccion(identificadorTransaccion);
         transaccion.setClienteId(request.getClienteId());
         transaccion.setFondoId(request.getFondoId());
-        transaccion.setTipo(Transaccion.TipoTransaccion.SUSCRIPCION);
+        transaccion.setTipo(Transaccion.TipoTransaccion.APERTURA);
         transaccion.setMonto(request.getMontoVinculado());
         transaccion.setFechaTransaccion(LocalDateTime.now());
         transaccion.setDescripcion("Suscripción al fondo " + fondo.getNombre());
